@@ -36,7 +36,14 @@ class Settings(BaseSettings):
     MUSIC_STYLE: str = "gentle"
 
     # CORS
-    CORS_ORIGINS: List[str] = ["http://localhost:3000", "http://localhost:5173"]
+    CORS_ORIGINS: List[str] = [
+        "http://localhost:3000",
+        "http://localhost:5173",
+        "https://liushenghua.vercel.app",
+        "https://liushenghua-git-main-takesen.vercel.app",
+        "https://liushenghua-83yr6leyj-takesen.vercel.app",
+        "https://liushenghua-pvzziftgj-takesen.vercel.app",
+    ]
 
 
 settings = Settings()
