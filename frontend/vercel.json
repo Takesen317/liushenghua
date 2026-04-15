@@ -1,0 +1,8 @@
+{
+  "rewrites": [
+    { "source": "/api/v1/(.*)", "destination": "https://liushenghua-backend.up.railway.app/api/v1/$1" },
+    { "source": "/results/(.*)", "destination": "https://liushenghua-backend.up.railway.app/results/$1" }
+  ],
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist"
+}

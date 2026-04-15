@@ -1,0 +1,39 @@
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+venv/
+.venv/
+
+# Node
+node_modules/
+dist/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Docs
+*.md
+!README.md
+docs/
+
+# Tests
+tests/
+*.test.py
+.coverage
+htmlcov/
+
+# Misc
+.env
+.env.local
+*.log
+.DS_Store

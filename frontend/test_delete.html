@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+<head><title>Test Delete</title></head>
+<body>
+<h1>Test Delete API</h1>
+<button id="testBtn">Test Delete</button>
+<pre id="output"></pre>
+<script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+<script>
+const output = document.getElementById('output');
+
+async function testDelete() {
+  try {
+    // Login first
+    const loginResp = await axios.post('http://localhost:8000/api/v1/auth/login', 
+      new URLSearchParams({username: 'test@example.com', password: 'test123'}), 
+      {headers: {'Content-Type': 'application/x-www-form-urlencoded'}}
+    );
+    const token = loginResp.data.access_token;
+    output.textContent += 'Got token: ' + token.substring(0, 30) + '...\n';
+    
+    // Get a task
+    const tasksResp = await axios.get('http://localhost:8000/api/v1/tasks', {
+      headers: {Authorization: 'Bearer ' + token}
+    });
+    const tasks = tasksResp.data.tasks;
+    output.textContent += 'Tasks: ' + JSON.stringify(tasks) + '\n';
+    
+    if (tasks.length > 0) {
+      const taskToDelete = tasks[0];
+      output.textContent += 'Deleting task: ' + taskToDelete.id + '\n';
+      
+      // Try to delete
+      try {
+        const deleteResp = await axios.delete('http://localhost:8000/api/v1/tasks/' + taskToDelete.id, {
+          headers: {Authorization: 'Bearer ' + token}
+        });
+        output.textContent += 'Delete success! Status: ' + deleteResp.status + '\n';
+        output.textContent += 'Delete response: ' + JSON.stringify(deleteResp.data) + '\n';
+      } catch (err) {
+        output.textContent += 'Delete error! Status: ' + err.response?.status + '\n';
+        output.textContent += 'Delete error: ' + JSON.stringify(err.response?.data) + '\n';
+      }
+    }
+  } catch (err) {
+    output.textContent += 'Error: ' + err.message + '\n';
+  }
+}
+
+document.getElementById('testBtn').onclick = testDelete;
+</script>
+</body>
+</html>

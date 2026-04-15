@@ -1,0 +1,106 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: liushenghua
+      POSTGRES_PASSWORD: liushenghua_secret
+      POSTGRES_DB: liushenghua
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U liushenghua"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Redis for Celery
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Backend API
+  backend:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://liushenghua:liushenghua_secret@postgres:5432/liushenghua
+      - REDIS_URL=redis://redis:6379/0
+      - SECRET_KEY=demo-secret-key-for-graduation-project
+      - UPLOAD_DIR=/app/uploads
+      - DEBUG=false
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - uploaded_files:/app/uploads
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # Celery Worker for AI tasks
+  celery_worker:
+    build: ./backend
+    command: celery -A app.tasks worker --loglevel=info --concurrency=2
+    environment:
+      - DATABASE_URL=postgresql://liushenghua:liushenghua_secret@postgres:5432/liushenghua
+      - REDIS_URL=redis://redis:6379/0
+      - SECRET_KEY=demo-secret-key-for-graduation-project
+      - UPLOAD_DIR=/app/uploads
+      - DEBUG=false
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - uploaded_files:/app/uploads
+    deploy:
+      replicas: 1
+
+  # Frontend (Production)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - VITE_API_BASE_URL=http://localhost:8000/api/v1
+    depends_on:
+      - backend
+
+  # Nginx for production reverse proxy
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - frontend
+      - backend
+    profiles:
+      - production
+
+volumes:
+  postgres_data:
+  redis_data:
+  uploaded_files:

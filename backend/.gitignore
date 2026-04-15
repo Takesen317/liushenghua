@@ -1,0 +1,28 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+venv/
+env/
+.env
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Uploads
+uploads/
+*.mp4
+*.mp3
+*.wav
+
+# Celery
+celerybeat-schedule
+celerybeat.pid
+
+# Logs
+*.log
