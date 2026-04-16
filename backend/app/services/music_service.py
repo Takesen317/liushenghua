@@ -32,7 +32,7 @@ class MusicGenService:
             print(f"Warning: Could not load MusicGen model: {e}")
             self._initialized = True
 
-    def generate_music(self, description: str, output_path: str, duration: int = 10) -> str:
+    def generate_music(self, description: str, output_path: str, duration: int = 10, music_style: str = "gentle") -> str:
         """
         Generate background music based on description
 
@@ -40,6 +40,7 @@ class MusicGenService:
             description: Text description of desired music style
             output_path: Path to save WAV file
             duration: Duration in seconds
+            music_style: Style of music (gentle, cheerful, melancholy, epic)
 
         Returns:
             Path to generated WAV file
@@ -58,8 +59,7 @@ class MusicGenService:
                 "epic": f"{description}, epic, orchestral, cinematic atmosphere",
             }
 
-            from app.core.config import settings
-            prompt = style_prompts.get(settings.music_style, description)
+            prompt = style_prompts.get(music_style, description)
 
             self.model.set_generation_params(duration=duration)
             output = self.model.generate([prompt], progress=False)

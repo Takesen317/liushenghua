@@ -72,7 +72,7 @@ async def serve_video(task_id: str, filename: str):
 
     if os.path.exists(video_path):
         return FileResponse(video_path, media_type="video/mp4")
-    return {"error": "Video not found"}, 404
+    raise HTTPException(status_code=404, detail="Video not found")
 
 
 @app.get("/")

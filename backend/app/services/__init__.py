@@ -49,7 +49,7 @@ def process_narration(image_path: str, style: str, voice: str, music_style: str,
 
     # Step 4: MusicGen Background Music
     music_path = output_dir / "music.wav"
-    music_service.generate_music(ai_description, str(music_path))
+    music_service.generate_music(ai_description, str(music_path), music_style=music_style)
 
     # Step 5: FFmpeg Video Composition
     video_path = output_dir / "output.mp4"

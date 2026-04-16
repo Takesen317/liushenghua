@@ -108,6 +108,11 @@ def process_narration_task(task_id: str):
         task.updated_at = datetime.now(timezone.utc)
         db.commit()
 
+        # Check if task was cancelled before running AI pipeline
+        db.refresh(task)
+        if task.status == "failed":
+            return {"status": task.status, "message": "Task was cancelled"}
+
         # Run the complete AI pipeline
         from app.core.config import settings
         output_dir = Path(settings.UPLOAD_DIR) / "results" / task_id
@@ -120,6 +125,11 @@ def process_narration_task(task_id: str):
             music_style=task.music_style,
             output_dir=str(output_dir)
         )
+
+        # Check if task was cancelled after AI pipeline completed
+        db.refresh(task)
+        if task.status == "failed":
+            return {"status": task.status, "message": "Task was cancelled"}
 
         # Update task with results - store relative paths for cross-platform compatibility
         task.status = "completed"
@@ -188,3 +198,8 @@ def cleanup_old_files():
     """Periodic task to clean up old uploaded files"""
     # TODO: Implement cleanup logic
     pass
+
+
+def get_celery_app():
+    """Get the Celery app instance for task control operations"""
+    return _celery_app
