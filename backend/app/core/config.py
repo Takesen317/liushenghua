@@ -24,10 +24,25 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440  # 24 hours
 
     def model_post_init(self, *args, **kwargs):
-        """Warn if using default SECRET_KEY in production"""
+        """Validate configuration for production safety"""
         import warnings
-        if self.SECRET_KEY == "dev-secret-key-for-development-only" and not self.DEBUG:
-            warnings.warn("Using default SECRET_KEY in production is insecure. Set a secure value via environment variable.")
+
+        # Warn if using default SECRET_KEY in production
+        if self.SECRET_KEY == "dev-secret-key-for-development-only":
+            if not self.DEBUG:
+                # In production with default key, raise error
+                raise ValueError(
+                    "FATAL: Using default SECRET_KEY in production is insecure. "
+                    "Set a secure SECRET_KEY via environment variable."
+                )
+            else:
+                warnings.warn("Using default SECRET_KEY in development mode.")
+
+        # Validate SECRET_KEY has minimum length
+        if len(self.SECRET_KEY) < 32:
+            if not self.DEBUG:
+                raise ValueError("SECRET_KEY must be at least 32 characters for security.")
+            warnings.warn("SECRET_KEY is shorter than recommended 32 characters.")
 
     # File Storage
     UPLOAD_DIR: str = "./uploads"
