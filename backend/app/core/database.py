@@ -3,7 +3,7 @@ Database connection and session management
 """
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
-from sqlalchemy.pool import StaticPool
+from sqlalchemy.pool import NullPool
 
 from app.core.config import settings
 
@@ -15,7 +15,7 @@ if "sqlite" in settings.DATABASE_URL or "postgresql" not in settings.DATABASE_UR
     engine = create_engine(
         "sqlite:///./liushenghua.db",
         connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
+        poolclass=NullPool,  # NullPool is safer for SQLite with threading
     )
 else:
     engine = create_engine(

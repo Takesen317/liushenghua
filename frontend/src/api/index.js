@@ -31,9 +31,9 @@ export default {
   register(data) {
     return api.post('/auth/register', data)
   },
-  login(username, password) {
+  login(email, password) {
     const params = new URLSearchParams()
-    params.append('username', username)
+    params.append('username', email)
     params.append('password', password)
     return api.post('/auth/login', params, {
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' }

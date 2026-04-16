@@ -11,7 +11,8 @@ class MusicGenService:
     def __init__(self):
         self.model = None
         self._initialized = False
-        self.device = "cuda" if os.environ.get("CUDA_VISIBLE_DEVICES") else "cpu"
+        import torch
+        self.device = "cuda" if torch.cuda.is_available() else "cpu"
 
     def load_model(self):
         """Lazy load model on first use"""
@@ -91,7 +92,8 @@ class MusicGenService:
         try:
             from scipy.io import wavfile
             wavfile.write(output_path, sample_rate, audio_data.astype(np.float32))
-        except:
+        except Exception as e:
+            print(f"Failed to write audio file: {e}")
             # If scipy fails, create empty file
             with open(output_path, 'wb') as f:
                 f.write(b'RIFF' + (len(audio_data) * 4 + 36).to_bytes(4, 'little'))

@@ -5,7 +5,7 @@ FastAPI Application Entry Point
 import os
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 
@@ -51,9 +51,25 @@ app.include_router(share.router, prefix="/api/v1/share", tags=["分享"])
 @app.get("/results/{task_id}/{filename}")
 async def serve_video(task_id: str, filename: str):
     """Serve video files"""
-    video_path = os.path.join(settings.UPLOAD_DIR, "results", task_id, filename)
-    # Convert to absolute path and normalize separators
-    video_path = os.path.abspath(video_path)
+    # Validate task_id and filename contain no path traversal
+    if ".." in task_id or "/" in task_id or "\\" in task_id:
+        raise HTTPException(status_code=400, detail="Invalid task ID")
+    if ".." in filename or "/" in filename or "\\" in filename:
+        raise HTTPException(status_code=400, detail="Invalid filename")
+
+    # Validate file extension
+    allowed_exts = {".mp4", ".webm", ".mov"}
+    ext = os.path.splitext(filename)[-1].lower()
+    if ext not in allowed_exts:
+        raise HTTPException(status_code=400, detail="Invalid file type")
+
+    # Ensure path is within expected directory
+    base_dir = os.path.abspath(os.path.join(settings.UPLOAD_DIR, "results"))
+    video_path = os.path.abspath(os.path.join(base_dir, task_id, filename))
+
+    if not video_path.startswith(base_dir):
+        raise HTTPException(status_code=403, detail="Access denied")
+
     if os.path.exists(video_path):
         return FileResponse(video_path, media_type="video/mp4")
     return {"error": "Video not found"}, 404

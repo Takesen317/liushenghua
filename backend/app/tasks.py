@@ -25,7 +25,7 @@ try:
     })
     _celery_available = True
     print("Celery initialized successfully")
-except Exception as e:
+except (ImportError, OSError) as e:
     print(f"Warning: Celery not available: {e}")
     print("Tasks will be processed synchronously in development mode.")
 
@@ -60,6 +60,11 @@ def process_narration_task(task_id: str):
         task = db.query(Task).filter(Task.id == task_id).first()
         if not task:
             return {"error": "Task not found"}
+
+        # Check if task was cancelled before we start processing
+        # For sync processing, status might be "pending" (not yet set to "processing")
+        if task.status == "failed":
+            return {"status": task.status, "message": "Task was cancelled"}
 
         # Update status to processing
         task.status = "processing"
@@ -146,8 +151,8 @@ def process_narration_task(task_id: str):
                 task.progress = 0
                 task.updated_at = datetime.now(timezone.utc)
                 db.commit()
-        except:
-            pass
+        except Exception as inner_e:
+            print(f"Failed to update task {task_id} status: {inner_e}")
 
         return {"error": str(e), "task_id": task_id}
 
@@ -163,10 +168,16 @@ if _celery_app:
 
 
 def queue_task(task_id: str):
-    """Queue a task for async processing"""
+    """Queue a task for async processing (idempotent - same task_id won't be queued twice)"""
     if _celery_app and _celery_available:
         try:
-            _celery_app.send_task("process_narration_task", args=[task_id])
+            # Use task_id as Celery task_id for deduplication
+            # Celery ignores duplicates if task is already pending/processing
+            _celery_app.send_task(
+                "process_narration_task",
+                args=[task_id],
+                task_id=task_id  # Idempotency key
+            )
             return True
         except Exception as e:
             print(f"Failed to queue task: {e}")

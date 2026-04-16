@@ -11,11 +11,11 @@ class FileResponse(BaseModel):
     id: str
     user_id: str
     filename: str
-    file_path: str
     file_type: str
     file_size: int
     description: Optional[str]
     created_at: str
+    url: str  # Public download URL instead of internal path
 
 
 class FileUploadResponse(BaseModel):

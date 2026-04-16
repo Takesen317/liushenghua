@@ -89,15 +89,17 @@ const fetchShareContent = async () => {
       const parts = videoPath.split('/').filter(p => p)
       let taskId = ''
       let filename = ''
-      if (parts.length >= 2 && parts[0] === 'results') {
-        taskId = parts[1]
-        filename = parts.slice(2).join('/')
-      } else if (parts.length >= 2) {
-        taskId = parts[0]
-        filename = parts.slice(1).join('/')
-      } else if (parts.length === 1) {
-        filename = parts[0]
+
+      // Normalize: if path starts with 'results/', skip it
+      const startIdx = parts[0] === 'results' ? 2 : 0
+
+      if (parts.length >= startIdx + 2) {
+        taskId = parts[startIdx]
+        filename = parts.slice(startIdx + 1).join('/')
+      } else if (parts.length === startIdx + 1) {
+        filename = parts[startIdx]
       }
+
       if (taskId && filename) {
         videoUrl.value = `/results/${taskId}/${filename}`
       }

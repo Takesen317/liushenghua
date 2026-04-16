@@ -2,9 +2,12 @@
 Authentication API routes
 """
 import uuid
+import time
 from datetime import timedelta
+from collections import defaultdict
+from typing import Dict, List
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
@@ -16,6 +19,24 @@ from app.schemas.user import UserCreate, UserResponse, TokenResponse
 
 router = APIRouter()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
+
+
+# Simple in-memory rate limiter (per IP)
+# For production, use slowapi with Redis backend
+_rate_limit_storage: Dict[str, List[float]] = defaultdict(list)
+
+def _check_rate_limit(ip: str, max_requests: int, window_seconds: int) -> bool:
+    """Check if IP exceeds rate limit. Returns True if allowed, False if exceeded."""
+    now = time.time()
+    # Remove old entries outside the window
+    _rate_limit_storage[ip] = [
+        t for t in _rate_limit_storage[ip]
+        if now - t < window_seconds
+    ]
+    if len(_rate_limit_storage[ip]) >= max_requests:
+        return False
+    _rate_limit_storage[ip].append(now)
+    return True
 
 
 def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
@@ -45,7 +66,15 @@ def generate_user_id() -> str:
 
 
 @router.post("/register", response_model=TokenResponse)
-async def register(user_data: UserCreate, db: Session = Depends(get_db)):
+async def register(request: Request, user_data: UserCreate, db: Session = Depends(get_db)):
+    """Register a new user"""
+    # Rate limiting: 5 registrations per minute per IP
+    client_ip = request.client.host if request.client else "unknown"
+    if not _check_rate_limit(client_ip, max_requests=5, window_seconds=60):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="请求过于频繁，请稍后再试"
+        )
     """Register a new user"""
     # Check if email already exists
     existing = db.query(User).filter(User.email == user_data.email).first()
@@ -78,7 +107,15 @@ async def register(user_data: UserCreate, db: Session = Depends(get_db)):
 
 
 @router.post("/login", response_model=TokenResponse)
-async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+async def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+    """Login with email and password"""
+    # Rate limiting: 10 login attempts per minute per IP
+    client_ip = request.client.host if request.client else "unknown"
+    if not _check_rate_limit(client_ip, max_requests=10, window_seconds=60):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="请求过于频繁，请稍后再试"
+        )
     """Login with email and password"""
     user = db.query(User).filter(User.email == form_data.username).first()
 

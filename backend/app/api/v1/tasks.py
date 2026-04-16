@@ -3,7 +3,7 @@ Task management API routes
 """
 import os
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
@@ -155,10 +155,17 @@ async def cancel_task(
 
     task.status = "failed"
     task.error_message = "用户主动取消"
-    task.updated_at = datetime.utcnow()
+    task.updated_at = datetime.now(timezone.utc)
     db.commit()
 
-    # TODO: Send cancellation signal to Celery worker
+    # Try to revoke Celery task if running
+    try:
+        from app.tasks import get_celery_app
+        celery_app = get_celery_app()
+        if celery_app and task.status == "processing":
+            celery_app.control.revoke(task_id, terminate=True)
+    except Exception:
+        pass  # Task may have already finished
 
     return {"message": "任务已取消"}
 
@@ -193,7 +200,7 @@ async def retry_task(
     task.current_step = None
     task.error_message = None
     task.result_data = None
-    task.updated_at = datetime.utcnow()
+    task.updated_at = datetime.now(timezone.utc)
     db.commit()
 
     # Re-queue the task
@@ -214,6 +221,10 @@ async def list_tasks(
     offset: int = 0
 ):
     """List user's tasks"""
+    # Enforce pagination limits to prevent memory issues
+    max_limit = 100
+    limit = min(limit, max_limit)
+
     tasks = db.query(Task).filter(
         Task.user_id == current_user.id
     ).order_by(Task.created_at.desc()).offset(offset).limit(limit).all()
@@ -257,8 +268,8 @@ async def delete_task(
     if file_record and os.path.exists(file_record.file_path):
         try:
             os.remove(file_record.file_path)
-        except:
-            pass
+        except OSError as e:
+            print(f"Failed to delete file: {e}")
         db.delete(file_record)
 
     # Delete associated share
@@ -267,17 +278,14 @@ async def delete_task(
     if share_record:
         db.delete(share_record)
 
-    # Delete result files
-    if task.result_data:
-        for key in ["video_url", "audio_url", "music_url"]:
-            path = task.result_data.get(key)
-            if path:
-                full_path = os.path.join(settings.UPLOAD_DIR, "results", path)
-                if os.path.exists(full_path):
-                    try:
-                        os.remove(full_path)
-                    except:
-                        pass
+    # Delete result files directory
+    results_dir = os.path.join(settings.UPLOAD_DIR, "results", task_id)
+    if os.path.exists(results_dir):
+        try:
+            import shutil
+            shutil.rmtree(results_dir)
+        except OSError as e:
+            print(f"Failed to delete results directory: {e}")
 
     # Delete task
     db.delete(task)

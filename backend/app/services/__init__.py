@@ -33,13 +33,9 @@ def process_narration(image_path: str, style: str, voice: str, music_style: str,
         Dictionary with paths to generated files and AI description
     """
     from pathlib import Path
-    import uuid
 
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
-
-    # Generate unique ID for this task
-    task_id = uuid.uuid4().hex[:8]
 
     # Step 1: BLIP-2 Image Analysis
     ai_description = blip2_service.analyze_image(image_path)
@@ -48,15 +44,15 @@ def process_narration(image_path: str, style: str, voice: str, music_style: str,
     enhanced_description = _enhance_with_style(ai_description, style)
 
     # Step 3: Edge-TTS Voice Synthesis
-    audio_path = output_dir / f"{task_id}_narration.mp3"
+    audio_path = output_dir / "narration.mp3"
     tts_service.synthesize_sync(enhanced_description, str(audio_path), voice)
 
     # Step 4: MusicGen Background Music
-    music_path = output_dir / f"{task_id}_music.wav"
+    music_path = output_dir / "music.wav"
     music_service.generate_music(ai_description, str(music_path))
 
     # Step 5: FFmpeg Video Composition
-    video_path = output_dir / f"{task_id}_output.mp4"
+    video_path = output_dir / "output.mp4"
     ffmpeg_service.compose_video(
         str(image_path),
         str(audio_path),

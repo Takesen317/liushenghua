@@ -19,9 +19,15 @@ class Settings(BaseSettings):
     REDIS_URL: str = "redis://localhost:6379/0"
 
     # Security
-    SECRET_KEY: str = "dev-secret-key-change-in-production"
+    SECRET_KEY: str = "dev-secret-key-for-development-only"  # Fallback for development
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440  # 24 hours
+
+    def model_post_init(self, *args, **kwargs):
+        """Warn if using default SECRET_KEY in production"""
+        import warnings
+        if self.SECRET_KEY == "dev-secret-key-for-development-only" and not self.DEBUG:
+            warnings.warn("Using default SECRET_KEY in production is insecure. Set a secure value via environment variable.")
 
     # File Storage
     UPLOAD_DIR: str = "./uploads"

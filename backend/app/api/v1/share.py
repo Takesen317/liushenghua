@@ -4,12 +4,13 @@ Share management API routes
 import uuid
 import random
 import string
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
+from sqlalchemy import update
 
 from app.core.database import get_db
 from app.core.dependencies import get_current_user
@@ -71,8 +72,7 @@ async def create_share_link(
     # Create new share
     expires_at = None
     if expires_days:
-        from datetime import timedelta
-        expires_at = datetime.utcnow() + timedelta(days=expires_days)
+        expires_at = datetime.now(timezone.utc) + timedelta(days=expires_days)
 
     share_code = generate_share_code()
 
@@ -111,7 +111,7 @@ async def get_shared_content(
         )
 
     # Check expiration
-    if share.expires_at and share.expires_at < datetime.utcnow():
+    if share.expires_at and share.expires_at < datetime.now(timezone.utc):
         raise HTTPException(
             status_code=status.HTTP_410_GONE,
             detail="分享链接已过期"
@@ -125,9 +125,16 @@ async def get_shared_content(
             detail="内容不可用"
         )
 
-    # Increment view count
-    share.view_count += 1
+    # Increment view count (atomic update to prevent race condition)
+    db.execute(
+        update(Share)
+        .where(Share.share_code == share_code)
+        .values(view_count=Share.view_count + 1)
+    )
     db.commit()
+
+    # Refresh to get updated count
+    db.refresh(share)
 
     # Get file info
     from app.models.file import File

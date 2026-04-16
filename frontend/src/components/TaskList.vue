@@ -250,14 +250,14 @@ const retryTask = async (task) => {
   try {
     await api.retryTask(task.id)
     ElMessage.success('任务已重新提交')
-    // Update task status locally
+    // Update task status locally using splice for reactivity
     const taskIndex = tasks.value.findIndex(t => t.id === task.id)
     if (taskIndex !== -1) {
-      tasks.value[taskIndex] = {
+      tasks.value.splice(taskIndex, 1, {
         ...tasks.value[taskIndex],
         status: 'pending',
         progress: 0
-      }
+      })
     }
   } catch (error) {
     console.error('Failed to retry task:', error)

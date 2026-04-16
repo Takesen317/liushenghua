@@ -53,6 +53,27 @@ async def upload_file(
     contents = await file.read()
     file_size = len(contents)
 
+    # Validate magic bytes to ensure content matches extension
+    magic_bytes = {
+        "jpg": b"\xFF\xD8\xFF",
+        "jpeg": b"\xFF\xD8\xFF",
+        "png": b"\x89PNG\r\n\x1a\n",
+        "webp": b"RIFF",
+    }
+    expected_magic = magic_bytes.get(file_ext, b"")
+    if file_ext == "webp":
+        # WebP is RIFF....WEBP
+        if not contents.startswith(b"RIFF") or b"WEBP" not in contents[:12]:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="文件内容与扩展名不匹配"
+            )
+    elif not contents.startswith(expected_magic):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="文件内容与扩展名不匹配"
+        )
+
     if file_size > settings.MAX_FILE_SIZE:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -62,7 +83,9 @@ async def upload_file(
     # Generate file ID and path
     file_id = generate_file_id()
     upload_dir = ensure_upload_dir()
-    file_path = upload_dir / f"{file_id}_{file.filename}"
+    # Sanitize filename to prevent path traversal
+    safe_filename = "".join(c for c in file.filename if c.isalnum() or c in "._-")
+    file_path = upload_dir / f"{file_id}_{safe_filename}"
 
     # Save file synchronously (more reliable)
     with open(file_path, 'wb') as f:
@@ -112,11 +135,11 @@ async def get_file(
         id=db_file.id,
         user_id=db_file.user_id,
         filename=db_file.filename,
-        file_path=db_file.file_path,
         file_type=db_file.file_type,
         file_size=db_file.file_size,
         description=db_file.description,
-        created_at=db_file.created_at.isoformat()
+        created_at=db_file.created_at.isoformat(),
+        url=f"/api/v1/files/{db_file.id}"
     )
 
 
